@@ -1,0 +1,486 @@
+report-frontend/
+├── src/
+│   └── app/
+│       ├── admin/
+│       │   └── reports/
+│       │       ├── reports.component.ts
+│       │       └── reports.component.html
+│       ├── student/
+│       │   └── reports/
+│       │       ├── reports.component.ts
+│       │       └── reports.component.html
+│       ├── login/
+│       │   ├── login.component.ts
+│       │   └── login.component.html
+│       ├── app-routing.module.ts
+│       ├── app.module.ts
+│       ├── auth.service.ts
+│       ├── auth.guard.ts
+│       └── report.service.ts
+
+
+
+Install Angular CLI
+
+npm install -g @angular/cli
+
+
+Create Angular project
+
+ng new report-frontend --routing --style=scss
+cd report-frontend
+
+Install Angular Material
+
+ng add @angular/material
+
+Create Folders
+
+mkdir -p src/app/admin/reports
+mkdir -p src/app/student/reports
+mkdir -p src/app/login
+
+Paste contents into the following files:
+
+src/app/app.module.ts
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { HttpClientModule } from '@angular/common/http';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { FormsModule } from '@angular/forms';
+
+import { MatInputModule } from '@angular/material/input';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTableModule } from '@angular/material/table';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatSortModule } from '@angular/material/sort';
+
+import { LoginComponent } from './login/login.component';
+import { AdminReportsComponent } from './admin/reports/reports.component';
+import { StudentReportsComponent } from './student/reports/reports.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    LoginComponent,
+    AdminReportsComponent,
+    StudentReportsComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    HttpClientModule,
+    BrowserAnimationsModule,
+    FormsModule,
+    MatInputModule,
+    MatCardModule,
+    MatButtonModule,
+    MatToolbarModule,
+    MatTableModule,
+    MatSnackBarModule,
+    MatDialogModule,
+    MatPaginatorModule,
+    MatSortModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+
+***src/app/app-routing.module.ts
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { LoginComponent } from './login/login.component';
+import { AdminReportsComponent } from './admin/reports/reports.component';
+import { StudentReportsComponent } from './student/reports/reports.component';
+import { AuthGuard } from './auth.guard';
+
+const routes: Routes = [
+  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'login', component: LoginComponent },
+  { path: 'admin/reports', component: AdminReportsComponent, canActivate: [AuthGuard], data: { role: 'ADMIN' } },
+  { path: 'student/reports', component: StudentReportsComponent, canActivate: [AuthGuard], data: { role: 'STUDENT' } }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule { }
+
+
+***src/app/auth.service.ts
+
+
+import { Injectable } from '@angular/core';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private roleKey = 'user_role';
+  private userIdKey = 'user_id';
+
+  login(role: string, userId: number): void {
+    localStorage.setItem(this.roleKey, role);
+    localStorage.setItem(this.userIdKey, userId.toString());
+  }
+
+  getRole(): string | null {
+    return localStorage.getItem(this.roleKey);
+  }
+
+  getUserId(): number | null {
+    const id = localStorage.getItem(this.userIdKey);
+    return id ? parseInt(id, 10) : null;
+  }
+
+  isLoggedIn(): boolean {
+    return !!this.getRole() && !!this.getUserId();
+  }
+
+  logout(): void {
+    localStorage.clear();
+  }
+}
+
+
+***src/app/auth.guard.ts
+import { Injectable } from '@angular/core';
+import { CanActivate, ActivatedRouteSnapshot, Router, RouterStateSnapshot } from '@angular/router';
+import { AuthService } from './auth.service';
+
+@Injectable({ providedIn: 'root' })
+export class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService, private router: Router) {}
+
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean {
+    const expectedRole = route.data['role'];
+    const actualRole = this.authService.getRole();
+
+    if (this.authService.isLoggedIn() && actualRole === expectedRole) {
+      return true;
+    }
+
+    this.router.navigate(['/login']);
+    return false;
+  }
+}
+
+
+****src/app/login/login.component.ts
+import { Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../auth.service';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html'
+})
+export class LoginComponent {
+  userId: number = 0;
+  role: string = 'STUDENT';
+
+  constructor(private authService: AuthService, private router: Router) {}
+
+  login(): void {
+    if (this.userId && this.role) {
+      this.authService.login(this.role, this.userId);
+      const redirect = this.role === 'ADMIN' ? '/admin/reports' : '/student/reports';
+      this.router.navigate([redirect]);
+    }
+  }
+}
+
+
+***src/app/login/login.component.html
+
+
+<mat-card class="login-card">
+  <h2>Login</h2>
+  <form>
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>User ID</mat-label>
+      <input matInput type="number" [(ngModel)]="userId" name="userId">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Select Role</mat-label>
+      <mat-select [(ngModel)]="role" name="role">
+        <mat-option value="STUDENT">Student</mat-option>
+        <mat-option value="ADMIN">Admin</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="login()">Login</button>
+  </form>
+</mat-card>
+
+***src/app/report.service.ts
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+export interface ReportSummaryDTO {
+  reportId: number;
+  examId: number;
+  userId: number;
+  totalMarks: number;
+  performanceMetrics: string;
+}
+
+@Injectable({ providedIn: 'root' })
+export class ReportService {
+  private baseUrl = 'http://localhost:8085/analytics/reports';
+
+  constructor(private http: HttpClient) {}
+
+  getAllReports(): Observable<ReportSummaryDTO[]> {
+    return this.http.get<ReportSummaryDTO[]>(`${this.baseUrl}`);
+  }
+
+  getReportsByUser(userId: number): Observable<ReportSummaryDTO[]> {
+    return this.http.get<ReportSummaryDTO[]>(`${this.baseUrl}/user/${userId}`);
+  }
+
+  getReportByUserAndExam(userId: number, examId: number): Observable<ReportSummaryDTO> {
+    return this.http.get<ReportSummaryDTO>(`${this.baseUrl}/user/${userId}/exam/${examId}`);
+  }
+
+  getTopper(): Observable<ReportSummaryDTO> {
+    return this.http.get<ReportSummaryDTO>(`${this.baseUrl}/topper`);
+  }
+
+  getRank(userId: number): Observable<number> {
+    return this.http.get<number>(`${this.baseUrl}/rank?userId=${userId}`);
+  }
+
+  getExamCount(userId: number): Observable<number> {
+    return this.http.get<number>(`${this.baseUrl}/user/${userId}/examCount`);
+  }
+
+  deleteReport(userId?: number, examId?: number): Observable<any> {
+    let url = `${this.baseUrl}`;
+    const params: string[] = [];
+    if (userId !== undefined) params.push(`userId=${userId}`);
+    if (examId !== undefined) params.push(`examId=${examId}`);
+    if (params.length) url += `?${params.join('&')}`;
+    return this.http.delete(url);
+  }
+
+  deleteAllReports(): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/all`);
+  }
+}
+
+
+***src/app/admin/reports/reports.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { ReportService, ReportSummaryDTO } from '../../report.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+
+@Component({
+  selector: 'app-admin-reports',
+  templateUrl: './reports.component.html'
+})
+export class AdminReportsComponent implements OnInit {
+  reports: ReportSummaryDTO[] = [];
+  topper?: ReportSummaryDTO;
+  userId?: number;
+  examId?: number;
+
+  constructor(private reportService: ReportService, private snackBar: MatSnackBar) {}
+
+  ngOnInit(): void {
+    this.loadReports();
+    this.loadTopper();
+  }
+
+  loadReports(): void {
+    this.reportService.getAllReports().subscribe(
+      res => this.reports = res,
+      err => this.snackBar.open('Error loading reports', 'Close', { duration: 3000 })
+    );
+  }
+
+  loadTopper(): void {
+    this.reportService.getTopper().subscribe(
+      res => this.topper = res,
+      err => this.snackBar.open('Error fetching topper', 'Close', { duration: 3000 })
+    );
+  }
+
+  deleteReports(): void {
+    this.reportService.deleteReport(this.userId, this.examId).subscribe(
+      () => {
+        this.snackBar.open('Deleted successfully', 'Close', { duration: 3000 });
+        this.loadReports();
+      },
+      err => this.snackBar.open('Delete failed', 'Close', { duration: 3000 })
+    );
+  }
+
+  deleteAll(): void {
+    if (confirm('Are you sure to delete all reports?')) {
+      this.reportService.deleteAllReports().subscribe(
+        () => {
+          this.snackBar.open('All reports deleted', 'Close', { duration: 3000 });
+          this.loadReports();
+        },
+        err => this.snackBar.open('Failed to delete all reports', 'Close', { duration: 3000 })
+      );
+    }
+  }
+}
+
+
+
+***src/app/admin/reports/reports.component.html
+
+<mat-card class="top-section">
+  <div>
+    <h3>Topper</h3>
+    <div *ngIf="topper">
+      User {{topper.userId}} scored {{topper.totalMarks}} - {{topper.performanceMetrics}}
+    </div>
+  </div>
+  <div>
+    <h3>Delete Reports</h3>
+    <mat-form-field appearance="fill">
+      <mat-label>User ID</mat-label>
+      <input matInput type="number" [(ngModel)]="userId">
+    </mat-form-field>
+    <mat-form-field appearance="fill">
+      <mat-label>Exam ID</mat-label>
+      <input matInput type="number" [(ngModel)]="examId">
+    </mat-form-field>
+    <button mat-button color="warn" (click)="deleteReports()">Delete Selected</button>
+    <button mat-stroked-button color="warn" (click)="deleteAll()">Delete All Reports</button>
+  </div>
+</mat-card>
+
+<mat-card>
+  <h3>All Reports</h3>
+  <table mat-table [dataSource]="reports" class="mat-elevation-z8">
+    <ng-container matColumnDef="reportId">
+      <th mat-header-cell *matHeaderCellDef>Report ID</th>
+      <td mat-cell *matCellDef="let report">{{report.reportId}}</td>
+    </ng-container>
+    <ng-container matColumnDef="userId">
+      <th mat-header-cell *matHeaderCellDef>User ID</th>
+      <td mat-cell *matCellDef="let report">{{report.userId}}</td>
+    </ng-container>
+    <ng-container matColumnDef="examId">
+      <th mat-header-cell *matHeaderCellDef>Exam ID</th>
+      <td mat-cell *matCellDef="let report">{{report.examId}}</td>
+    </ng-container>
+    <ng-container matColumnDef="totalMarks">
+      <th mat-header-cell *matHeaderCellDef>Total Marks</th>
+      <td mat-cell *matCellDef="let report">{{report.totalMarks}}</td>
+    </ng-container>
+    <ng-container matColumnDef="performanceMetrics">
+      <th mat-header-cell *matHeaderCellDef>Performance</th>
+      <td mat-cell *matCellDef="let report">{{report.performanceMetrics}}</td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="['reportId','userId','examId','totalMarks','performanceMetrics']"></tr>
+    <tr mat-row *matRowDef="let row; columns: ['reportId','userId','examId','totalMarks','performanceMetrics'];"></tr>
+  </table>
+</mat-card>
+
+
+***student/reports/reports.component.ts
+
+
+import { Component, OnInit } from '@angular/core';
+import { ReportService, ReportSummaryDTO } from '../../report.service';
+import { AuthService } from '../../auth.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+
+@Component({
+  selector: 'app-student-reports',
+  templateUrl: './reports.component.html'
+})
+export class StudentReportsComponent implements OnInit {
+  examCount: number = 0;
+  rank: number = 0;
+  userId: number = 0;
+  examId: number = 0;
+  showReport = false;
+  report?: ReportSummaryDTO;
+
+  constructor(
+    private reportService: ReportService,
+    private authService: AuthService,
+    private snackBar: MatSnackBar
+  ) {}
+
+  ngOnInit(): void {
+    this.userId = this.authService.getUserId() ?? 0;
+    this.loadExamCount();
+    this.loadRank();
+  }
+
+  loadExamCount(): void {
+    this.reportService.getExamCount(this.userId).subscribe(
+      res => this.examCount = res,
+      err => this.snackBar.open('Error fetching exam count', 'Close', { duration: 3000 })
+    );
+  }
+
+  loadRank(): void {
+    this.reportService.getRank(this.userId).subscribe(
+      res => this.rank = res,
+      err => this.snackBar.open('Error fetching rank', 'Close', { duration: 3000 })
+    );
+  }
+
+  fetchReport(): void {
+    this.reportService.getReportByUserAndExam(this.userId, this.examId).subscribe(
+      res => {
+        this.report = res;
+        this.showReport = true;
+      },
+      err => this.snackBar.open('Report not found', 'Close', { duration: 3000 })
+    );
+  }
+}
+
+
+***student/reports/reports.component.html
+
+
+<mat-card class="top-section">
+  <div>
+    <h3>Exams Attempted</h3>
+    <p>{{ examCount }}</p>
+  </div>
+  <div>
+    <h3>Your Rank</h3>
+    <p>{{ rank }}</p>
+  </div>
+</mat-card>
+
+<mat-card *ngIf="!showReport">
+  <h3>View Exam Report</h3>
+  <mat-form-field appearance="fill">
+    <mat-label>Exam ID</mat-label>
+    <input matInput type="number" [(ngModel)]="examId">
+  </mat-form-field>
+  <button mat-raised-button color="primary" (click)="fetchReport()">Submit</button>
+</mat-card>
+
+<mat-card *ngIf="showReport">
+  <h3>Your Report</h3>
+  <p><strong>Exam ID:</strong> {{ report?.examId }}</p>
+  <p><strong>Total Marks:</strong> {{ report?.totalMarks }}</p>
+  <p><strong>Performance:</strong> {{ report?.performanceMetrics }}</p>
+</mat-card>
+
